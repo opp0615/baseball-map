@@ -1,8 +1,8 @@
 # 간단한 야구장 위치 보는 지도
 
-![Alt text](/img/screenshot.PNG)
-
-1. 기능
+## 1. 기능
 * 엑셀 데이터에 기반한 위치에 마커 생성
 * 일반지도와 스카이뷰 전환
 * 마우스 호버시 야구장 이름 출력
+
+![Alt text](/img/screenshot.PNG)
