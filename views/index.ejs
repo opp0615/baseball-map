@@ -21,6 +21,13 @@ html, body {width:100%;height:100%;margin:0;padding:0;}
 </style>
 </head>
 <body>
+<div style="position:fixed;z-index:999;margin-top:15px;margin-left:15px">
+  <button onclick="changeMarker('total')">전체</button>
+  <button onclick="changeMarker('gameone')">게임원</button>
+  <button onclick="changeMarker('catchform')">캐치폼</button>
+  <button onclick="changeMarker('etc')">기타</button>
+  <button onclick="changeMarker('empty')">없음</button>
+</div>
 <div class="map_wrap">
     <div id="map" style="width:100%;height:100%;position:relative;overflow:hidden;"></div>
     <!-- 지도타입 컨트롤 div 입니다 -->
@@ -39,118 +46,224 @@ html, body {width:100%;height:100%;margin:0;padding:0;}
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=d112b7d1b0c2bd7ecd8cdfe9de54a599&libraries=services,clusterer,drawing"></script>
 
 <script>
-var mapContainer = document.getElementById('map'), // 지도를 표시할 div
-    mapOption = {
-        center: new kakao.maps.LatLng(37.550553, 127.073709), // 지도의 중심좌표
-        level: 3 // 지도의 확대 레벨
-    };
 
 
-var map = new kakao.maps.Map(mapContainer, mapOption); // 지도를 생성합니다
-
-
-var geocoder = new kakao.maps.services.Geocoder();
-
-
-// 마커를 생성하고 지도위에 표시하는 함수입니다
-function addMarker(position,category,info) {
-
-    console.log(category);
-
-    var imageSrc = '../images/normal.png';
-    //마커 이미지 생성
-    if(category == "게임원"){
-      imageSrc = '../images/gameone.png';
-    }
-    else if(category == "캐치폼"){
-      imageSrc = '../images/catchform.png';
-    }
-    else if(category == "spobee"){
-      imageSrc = '../images/spobee.png';
-    }
-    else{
-      imageSrc = '../images/normal.png';
-    }
-
-    var imageSize = new kakao.maps.Size(34,34);
-    var imageOption = {offset: new kakao.maps.Point(17,34)}
-
-    var markerImage = new kakao.maps.MarkerImage(imageSrc,imageSize,imageOption)
-
-    // 마커를 생성합니다
-    var marker = new kakao.maps.Marker({
-        position: position,
-        image : markerImage
-    });
-
-    // 마커가 지도 위에 표시되도록 설정합니다
-    marker.setMap(map);
-
-    // 생성된 마커를 배열에 추가합니다
-    //markers.push(marker);
-
-    // 마커에 커서가 오버됐을 때 마커 위에 표시할 인포윈도우를 생성합니다
-    var iwContent = '<div style="padding:5px;">'+info+'</div>'; // 인포윈도우에 표출될 내용으로 HTML 문자열이나 document element가 가능합니다
-
-    // 인포윈도우를 생성합니다
-    var infowindow = new kakao.maps.InfoWindow({
-        content : iwContent
-    });
-
-    // 마커에 마우스오버 이벤트를 등록합니다
-    kakao.maps.event.addListener(marker, 'mouseover', function() {
-      // 마커에 마우스오버 이벤트가 발생하면 인포윈도우를 마커위에 표시합니다
-        infowindow.open(map, marker);
-    });
-
-    // 마커에 마우스아웃 이벤트를 등록합니다
-    kakao.maps.event.addListener(marker, 'mouseout', function() {
-        // 마커에 마우스아웃 이벤트가 발생하면 인포윈도우를 제거합니다
-        infowindow.close();
-    });
-    global_data_index +=1;
-}
-
-
-
-var callback = function(result, status) {
-    if (status === kakao.maps.services.Status.OK) {
-        //console.log(result[0].address);
-        if(result[0].address){
-          var x = result[0].address.x;
-          var y = result[0].address.y;
-          console.log(result[0].address);
-          //addMarker(new kakao.maps.LatLng(y, x));
-
-        }
-    }
-};
-
-//addMarker(new kakao.maps.LatLng(33.450701, 126.570667));
-
-var data = []
-var global_data_index = 0;
+var gameoneDatas = []
+var catchformDatas = []
+var etcDatas = []
+var emptyDatas = []
 
 <% for(var i in data){ %>
   var category = "<%= data[i][1] %>"
-  var address = "<%= data[i][4] %>"
-  var ground_name = "<%= data[i][3] %>"
+  var league_name = "<%= data[i][2] %>"
+  var game_count = "<%= data[i][3] %>"
+  var info = league_name + "(" + game_count + ")"
   var x = "<%= data[i][5] %>"
   var y = "<%= data[i][6] %>"
-  //console.log(address);
-  if(x & y){
-    addMarker(new kakao.maps.LatLng(y, x),category,ground_name);
+
+  <% if(data[i][5] == "x"){continue} %>
+
+  var this_row = [new kakao.maps.LatLng(y,x),info]
+
+  if(category == "게임원 플레이"){
+    gameoneDatas.push(this_row)
+  }
+  else if(category == "캐치폼"){
+    catchformDatas.push(this_row)
+  }
+  else if(category == ""){
+    emptyDatas.push(this_row)
+  }
+  else{
+    etcDatas.push(this_row)
   }
 
 <%}%>
 
-console.log(data);
 
-for(var i in data){
-  geocoder.addressSearch(data[i].address, callback);
+var gameoneMarkers = []
+var catchformMarkers = []
+var etcMarkers = []
+var emptyMarkers = []
+
+var mapContainer = document.getElementById('map'), // 지도를 표시할 div
+    mapOption = {
+        center: new kakao.maps.LatLng(37.550553, 127.073709), // 지도의 중심좌표
+        level: 10 // 지도의 확대 레벨
+    };
+
+var map = new kakao.maps.Map(mapContainer, mapOption); // 지도를 생성합니다
+
+var geocoder = new kakao.maps.services.Geocoder();
+
+function createGameoneMarker(){
+
+  for(var i=0; i<gameoneDatas.length;i++){
+    var imageSrc = '../images/gameone.png';
+    var imageSize = new kakao.maps.Size(34,34);
+    var imageOption = {offset: new kakao.maps.Point(17,34)}
+
+    var markerImage = new kakao.maps.MarkerImage(imageSrc,imageSize,imageOption)
+    // 마커를 생성
+    var marker = new kakao.maps.Marker({
+        position: gameoneDatas[i][0],
+        image : markerImage
+    });
+
+    // 마커에 표시할 인포윈도우를 생성합니다
+    var infowindow = new kakao.maps.InfoWindow({
+        content: gameoneDatas[i][1] // 인포윈도우에 표시할 내용
+    });
+
+    // 마커에 mouseover 이벤트와 mouseout 이벤트를 등록합니다
+    // 이벤트 리스너로는 클로저를 만들어 등록합니다
+    // for문에서 클로저를 만들어 주지 않으면 마지막 마커에만 이벤트가 등록됩니다
+    kakao.maps.event.addListener(marker, 'mouseover', makeOverListener(map, marker, infowindow));
+    kakao.maps.event.addListener(marker, 'mouseout', makeOutListener(infowindow));
+
+    gameoneMarkers.push(marker)
+  }
+
+}
+
+function createCatchfromMarker(){
+
+  for(var i=0; i<catchformDatas.length;i++){
+    var imageSrc = '../images/catchform.png';
+    var imageSize = new kakao.maps.Size(34,34);
+    var imageOption = {offset: new kakao.maps.Point(17,34)}
+
+    var markerImage = new kakao.maps.MarkerImage(imageSrc,imageSize,imageOption)
+    // 마커를 생성
+    var marker = new kakao.maps.Marker({
+        position: catchformDatas[i][0],
+        image : markerImage
+    });
+
+    // 마커에 표시할 인포윈도우를 생성합니다
+    var infowindow = new kakao.maps.InfoWindow({
+        content: catchformDatas[i][1] // 인포윈도우에 표시할 내용
+    });
+
+    // 마커에 mouseover 이벤트와 mouseout 이벤트를 등록합니다
+    // 이벤트 리스너로는 클로저를 만들어 등록합니다
+    // for문에서 클로저를 만들어 주지 않으면 마지막 마커에만 이벤트가 등록됩니다
+    kakao.maps.event.addListener(marker, 'mouseover', makeOverListener(map, marker, infowindow));
+    kakao.maps.event.addListener(marker, 'mouseout', makeOutListener(infowindow));
+
+    catchformMarkers.push(marker)
+  }
+
+}
+
+function createEtcfromMarker(){
+  for(var i=0; i<etcDatas.length;i++){
+
+    var imageSrc = '../images/spobee.png';
+    var imageSize = new kakao.maps.Size(34,34);
+    var imageOption = {offset: new kakao.maps.Point(17,34)}
+
+    var markerImage = new kakao.maps.MarkerImage(imageSrc,imageSize,imageOption)
+    // 마커를 생성
+    var marker = new kakao.maps.Marker({
+        position: etcDatas[i][0],
+        image : markerImage
+    });
+
+    // 마커에 표시할 인포윈도우를 생성합니다
+    var infowindow = new kakao.maps.InfoWindow({
+        content: etcDatas[i][1] // 인포윈도우에 표시할 내용
+    });
+
+    // 마커에 mouseover 이벤트와 mouseout 이벤트를 등록합니다
+    // 이벤트 리스너로는 클로저를 만들어 등록합니다
+    // for문에서 클로저를 만들어 주지 않으면 마지막 마커에만 이벤트가 등록됩니다
+    kakao.maps.event.addListener(marker, 'mouseover', makeOverListener(map, marker, infowindow));
+    kakao.maps.event.addListener(marker, 'mouseout', makeOutListener(infowindow));
+
+    etcMarkers.push(marker)
+  }
+}
+
+function createEmptyfromMarker(){
+  for(var i=0; i<emptyDatas.length;i++){
+
+    // 마커를 생성
+    var marker = new kakao.maps.Marker({
+        position: emptyDatas[i][0]
+    });
+
+    // 마커에 표시할 인포윈도우를 생성합니다
+    var infowindow = new kakao.maps.InfoWindow({
+        content: emptyDatas[i][1] // 인포윈도우에 표시할 내용
+    });
+
+    // 마커에 mouseover 이벤트와 mouseout 이벤트를 등록합니다
+    // 이벤트 리스너로는 클로저를 만들어 등록합니다
+    // for문에서 클로저를 만들어 주지 않으면 마지막 마커에만 이벤트가 등록됩니다
+    kakao.maps.event.addListener(marker, 'mouseover', makeOverListener(map, marker, infowindow));
+    kakao.maps.event.addListener(marker, 'mouseout', makeOutListener(infowindow));
+
+    emptyMarkers.push(marker)
+  }
+}
+
+//게임원을 표시
+function setGameoneMarkers(map) {
+  for (var i = 0; i < gameoneMarkers.length; i++) {
+      gameoneMarkers[i].setMap(map);
+  }
+}
+
+//캐치폼을 표시
+function setCatchfromMarkers(map) {
+  for (var i = 0; i < catchformMarkers.length; i++) {
+      catchformMarkers[i].setMap(map);
+  }
+}
+
+//기타를 표시
+function setEtcMarkers(map) {
+  for (var i = 0; i < etcMarkers.length; i++) {
+      etcMarkers[i].setMap(map);
+  }
+}
+
+//없는 걸 표시
+function setEmptyMarkers(map) {
+  for (var i = 0; i < emptyMarkers.length; i++) {
+      emptyMarkers[i].setMap(map);
+  }
+}
+
+createGameoneMarker();
+setGameoneMarkers(map);
+
+createCatchfromMarker();
+setCatchfromMarkers(map);
+
+createEmptyfromMarker();
+setEmptyMarkers(map);
+
+createEtcfromMarker();
+setEtcMarkers(map);
+
+// 인포윈도우를 표시하는 클로저를 만드는 함수입니다
+function makeOverListener(map, marker, infowindow) {
+    return function() {
+        infowindow.open(map, marker);
+    };
+}
+
+// 인포윈도우를 닫는 클로저를 만드는 함수입니다
+function makeOutListener(infowindow) {
+    return function() {
+        infowindow.close();
+    };
 }
 
 
+//addMarker(new kakao.maps.LatLng(33.450701, 126.570667));
 // 지도타입 컨트롤의 지도 또는 스카이뷰 버튼을 클릭하면 호출되어 지도타입을 바꾸는 함수입니다
 function setMapType(maptype) {
     var roadmapControl = document.getElementById('btnRoadmap');
@@ -176,6 +289,56 @@ function zoomIn() {
 function zoomOut() {
     map.setLevel(map.getLevel() + 1);
 }
+
+// 카테고리를 클릭했을 때 type에 따라 카테고리의 스타일과 지도에 표시되는 마커를 변경합니다
+function changeMarker(type){
+
+  // 커피숍 카테고리가 클릭됐을 때
+  if (type === 'total') {
+
+    setGameoneMarkers(map);
+    setCatchfromMarkers(map);
+    setEmptyMarkers(map);
+    setEtcMarkers(map);
+
+  }
+  else if (type === 'gameone') {
+
+    setGameoneMarkers(map);
+    setCatchfromMarkers(null);
+    setEmptyMarkers(null);
+    setEtcMarkers(null);
+
+  }
+
+  else if (type === 'catchform') {
+
+    setGameoneMarkers(null);
+    setCatchfromMarkers(map);
+    setEmptyMarkers(null);
+    setEtcMarkers(null);
+
+  }
+  else if (type === 'etc') {
+
+    setGameoneMarkers(null);
+    setCatchfromMarkers(null);
+    setEmptyMarkers(null);
+    setEtcMarkers(map);
+
+  }
+  else if (type === 'empty') {
+
+    setGameoneMarkers(null);
+    setCatchfromMarkers(null);
+    setEmptyMarkers(map);
+    setEtcMarkers(null);
+ }
+
+
+
+}
+
 </script>
 
 </body>
